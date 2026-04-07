@@ -1,0 +1,33 @@
+{
+  "name": "socials",
+  "version": "1.1.14",
+  "description": "MCP server for the Socials browser extension — post, engage, search, and manage social media from Claude Code. Alias for @brainrotcreations/socials.",
+  "author": "brainrotcreations",
+  "license": "MIT",
+  "homepage": "https://socials.brainrotcreations.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Brainrot-Creations/socials.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "claude-code",
+    "socials",
+    "browser-extension",
+    "x",
+    "twitter",
+    "linkedin",
+    "reddit"
+  ],
+  "bin": {
+    "socials": "./bin.cjs"
+  },
+  "files": [
+    "bin.cjs"
+  ],
+  "dependencies": {
+    "@brainrotcreations/socials": "1.1.14"
+  }
+}
