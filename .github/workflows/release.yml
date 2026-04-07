@@ -87,7 +87,7 @@ jobs:
           # Pin dependency to exact published version
           jq --arg v "$VERSION" '.version = $v | .dependencies["@brainrotcreations/socials"] = $v' package.json > package.tmp.json && mv package.tmp.json package.json
           npm install
-          npm publish --access public --tag $NPM_TAG
+          NODE_AUTH_TOKEN=${{ secrets.NPM_TOKEN_UNSCOPED }} npm publish --access public --tag $NPM_TAG
           cd ../..
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
