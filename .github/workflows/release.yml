@@ -80,6 +80,8 @@ jobs:
           echo "Publishing @brainrotcreations/socials@$VERSION → npm tag: $NPM_TAG"
           npm publish --access public --tag $NPM_TAG
 
+          echo "Waiting for registry propagation..."
+          sleep 15
           echo "Publishing socials@$VERSION → npm tag: $NPM_TAG"
           cd packages/unscoped
           # Pin dependency to exact published version
