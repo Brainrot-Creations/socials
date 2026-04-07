@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    if: >
+      github.actor != 'github-actions[bot]' &&
+      (contains(github.event.head_commit.message, '[release:patch]') ||
+       contains(github.event.head_commit.message, '[release:minor]') ||
+       contains(github.event.head_commit.message, '[release:major]'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull latest (re-run safety)
+        run: git pull --rebase origin main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Determine bump type and next version
+        id: bump
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          if echo "$COMMIT_MSG" | grep -q '\[release:major\]'; then TYPE=major
+          elif echo "$COMMIT_MSG" | grep -q '\[release:minor\]'; then TYPE=minor
+          else TYPE=patch; fi
+          echo "type=$TYPE" >> $GITHUB_OUTPUT
+
+          CURRENT=$(jq -r .version package.json)
+          IFS='.' read -r MAJ MIN PAT <<< "$CURRENT"
+          case $TYPE in
+            major) NEXT="$((MAJ+1)).0.0" ;;
+            minor) NEXT="$MAJ.$((MIN+1)).0" ;;
+            patch) NEXT="$MAJ.$MIN.$((PAT+1))" ;;
+          esac
+          echo "next_version=$NEXT" >> $GITHUB_OUTPUT
+
+          if git ls-remote --tags origin "refs/tags/v$NEXT" | grep -q "v$NEXT"; then
+            echo "already_tagged=true" >> $GITHUB_OUTPUT
+          else
+            echo "already_tagged=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Version bump + build + tag + push
+        if: steps.bump.outputs.already_tagged == 'false'
+        run: node scripts/release.mjs ${{ steps.bump.outputs.type }} --skip-publish --skip-git-check
+
+      - name: Build (re-run — tag already exists)
+        if: steps.bump.outputs.already_tagged == 'true'
+        run: npm run build
+
+      - name: Publish to npm
+        run: |
+          VERSION="${{ steps.bump.outputs.next_version }}"
+          NPM_TAG="latest"
+          if echo "$VERSION" | grep -q '-'; then NPM_TAG="next"; fi
+          echo "Publishing @brainrotcreations/socials@$VERSION → npm tag: $NPM_TAG"
+          npm publish --access public --tag $NPM_TAG
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        run: |
+          TAG="v${{ steps.bump.outputs.next_version }}"
+          if gh release view "$TAG" &>/dev/null; then
+            echo "Release $TAG already exists — skipping"
+            exit 0
+          fi
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}~1" 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            NOTES=$(git log "$PREV_TAG..$TAG" --pretty=format:"- %s (%h)" --no-merges)
+          else
+            NOTES="Initial release"
+          fi
+          PRERELEASE=""
+          if echo "$TAG" | grep -q '\-'; then PRERELEASE="--prerelease"; fi
+          gh release create "$TAG" --title "$TAG" $PRERELEASE --notes "$NOTES"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

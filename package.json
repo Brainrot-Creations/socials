@@ -1,0 +1,61 @@
+{
+  "name": "@brainrotcreations/socials",
+  "version": "1.1.11",
+  "description": "MCP server for the Socials browser extension — post, engage, search, and manage social media from Claude Code",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "bin": {
+    "socials": "./dist/index.cjs"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/index.cjs && esbuild src/native-messaging-host.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/native-messaging-host.cjs && esbuild src/install-native-host.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/install-native-host.cjs",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/index.cjs",
+    "release:patch": "node scripts/release.mjs patch",
+    "release:minor": "node scripts/release.mjs minor",
+    "release:major": "node scripts/release.mjs major",
+    "release:dry": "node scripts/release.mjs patch --dry-run --skip-git-check"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "claude-code",
+    "socials",
+    "browser-extension",
+    "x",
+    "twitter",
+    "linkedin",
+    "reddit"
+  ],
+  "homepage": "https://brainrotcreations.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Brainrot-Creations/socials-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Brainrot-Creations/socials-mcp/issues"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "posthog-node": "^5.21.2",
+    "ws": "^8.16.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@types/ws": "^8.5.10",
+    "esbuild": "^0.27.4",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
