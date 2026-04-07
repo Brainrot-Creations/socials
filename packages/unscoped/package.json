@@ -1,6 +1,6 @@
 {
   "name": "socials",
-  "version": "1.1.16",
+  "version": "1.1.17",
   "description": "MCP server for the Socials browser extension — post, engage, search, and manage social media from Claude Code. Alias for @brainrotcreations/socials.",
   "author": "brainrotcreations",
   "license": "MIT",
@@ -28,6 +28,6 @@
     "bin.cjs"
   ],
   "dependencies": {
-    "@brainrotcreations/socials": "1.1.16"
+    "@brainrotcreations/socials": "1.1.17"
   }
 }
