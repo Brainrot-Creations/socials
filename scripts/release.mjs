@@ -72,6 +72,13 @@ console.log('→  Bumping version…');
 pkg.version = nextVer;
 if (!DRY_RUN) writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
 
+// Also bump unscoped package version + dependency
+const unscopedPath = resolve(ROOT, 'packages/unscoped/package.json');
+const unscopedPkg = JSON.parse(readFileSync(unscopedPath, 'utf8'));
+unscopedPkg.version = nextVer;
+unscopedPkg.dependencies['@brainrotcreations/socials'] = nextVer;
+if (!DRY_RUN) writeFileSync(unscopedPath, JSON.stringify(unscopedPkg, null, 2) + '\n');
+
 console.log('→  Building…');
 if (!DRY_RUN) run('npm run build');
 
@@ -84,7 +91,7 @@ if (!DRY_RUN) {
 const tag = `v${nextVer}`;
 console.log(`\n→  Committing and tagging ${tag}…`);
 if (!DRY_RUN) {
-  run('git add package.json');
+  run('git add package.json packages/unscoped/package.json');
   const staged = runOutput('git diff --cached --name-only');
   if (staged) run(`git commit -m "chore: release ${tag}"`);
   const tagExists = runOutput(`git tag -l ${tag}`);
@@ -97,6 +104,9 @@ if (!SKIP_PUBLISH) {
   if (!DRY_RUN) {
     const otpArg = OTP ? ` --otp=${OTP}` : '';
     run(`npm publish --access public --tag ${NPM_TAG}${otpArg}`);
+    run(`npm install && npm publish --access public --tag ${NPM_TAG}${otpArg}`, {
+      cwd: resolve(ROOT, 'packages/unscoped'),
+    });
   }
 }
 

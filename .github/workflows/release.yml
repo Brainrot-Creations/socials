@@ -76,8 +76,17 @@ jobs:
           VERSION="${{ steps.bump.outputs.next_version }}"
           NPM_TAG="latest"
           if echo "$VERSION" | grep -q '-'; then NPM_TAG="next"; fi
+
           echo "Publishing @brainrotcreations/socials@$VERSION → npm tag: $NPM_TAG"
           npm publish --access public --tag $NPM_TAG
+
+          echo "Publishing socials@$VERSION → npm tag: $NPM_TAG"
+          cd packages/unscoped
+          # Pin dependency to exact published version
+          jq --arg v "$VERSION" '.version = $v | .dependencies["@brainrotcreations/socials"] = $v' package.json > package.tmp.json && mv package.tmp.json package.json
+          npm install
+          npm publish --access public --tag $NPM_TAG
+          cd ../..
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
