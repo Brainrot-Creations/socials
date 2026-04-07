@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.cjs",
   "bin": {
-    "socials": "./dist/index.cjs"
+    "socials": "dist/index.cjs"
   },
   "files": [
     "dist",
@@ -37,7 +37,7 @@
   "homepage": "https://brainrotcreations.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Brainrot-Creations/socials-mcp.git"
+    "url": "git+https://github.com/Brainrot-Creations/socials-mcp.git"
   },
   "bugs": {
     "url": "https://github.com/Brainrot-Creations/socials-mcp/issues"
