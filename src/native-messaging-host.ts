@@ -130,7 +130,8 @@ wss.on("connection", (ws: WebSocket) => {
       // Registration message from MCP server
       if (msg.type === "register") {
         mcpId = msg.mcpId || `mcp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        mcpConnections.set(mcpId, { ws, mcpId, registeredAt: Date.now() });
+        const resolvedId = mcpId as string;
+        mcpConnections.set(resolvedId, { ws, mcpId: resolvedId, registeredAt: Date.now() });
 
         // Acknowledge registration
         ws.send(JSON.stringify({ type: "registered", mcpId }));

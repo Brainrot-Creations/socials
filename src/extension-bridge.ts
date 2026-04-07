@@ -26,6 +26,7 @@ import type {
 } from "./types.js";
 
 // Default port range (can be overridden by feature flag)
+const DEFAULT_COORDINATOR_PORT = 9846;
 const DEFAULT_PORT_START = 9847;
 const DEFAULT_PORT_COUNT = 10;
 const BRIDGE_HOST = "127.0.0.1" as const; // IPv4 only — avoids :: vs localhost mismatch and some EADDRINUSE cases
@@ -100,8 +101,6 @@ async function findAvailablePort(): Promise<number> {
   throw new Error(`No available ports in range ${portConfig.portStart}-${portEnd}. Close some MCP instances.`);
 }
 
-// Default coordinator port — overridden by portConfig.coordinatorPort from feature flags
-const DEFAULT_COORDINATOR_PORT = 9846;
 
 export class ExtensionBridge {
   private wss: WebSocketServer | null = null;

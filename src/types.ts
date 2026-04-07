@@ -164,6 +164,8 @@ export interface FeedPost {
     replies?: number;
     reposts?: number;
   };
+  /** Whether the post author is verified */
+  verified?: boolean;
   /** Whether this is the focused/main post being replied to */
   isFocused?: boolean;
   /** URLs extracted from post content */
