@@ -82,18 +82,51 @@ jobs:
           fi
           echo "version=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
 
+      - name: Resolve publish version (auto-jump on conflicts)
+        id: resolve
+        run: |
+          bump_patch() {
+            local v="$1"
+            IFS='.' read -r MAJ MIN PAT <<< "$v"
+            echo "${MAJ}.${MIN}.$((PAT+1))"
+          }
+
+          VERSION="$(jq -r .version package.json)"
+          while npm view "@brainrotcreations/socials@$VERSION" version >/dev/null 2>&1; do
+            echo "@brainrotcreations/socials@$VERSION already exists on npm. Jumping patch..."
+            VERSION="$(bump_patch "$VERSION")"
+          done
+
+          CURRENT="$(jq -r .version package.json)"
+          if [ "$CURRENT" != "$VERSION" ]; then
+            echo "Updating manifests to resolved version: $VERSION"
+            jq --arg v "$VERSION" '.version = $v' package.json > package.tmp.json && mv package.tmp.json package.json
+            jq --arg v "$VERSION" '.version = $v | .dependencies["@brainrotcreations/socials"] = $v' packages/unscoped/package.json > packages/unscoped/package.tmp.json && mv packages/unscoped/package.tmp.json packages/unscoped/package.json
+
+            git add package.json packages/unscoped/package.json
+            if [ -n "$(git diff --cached --name-only)" ]; then
+              git commit -m "chore: release v$VERSION"
+              git push origin main
+            fi
+          fi
+
+          if ! git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q "v$VERSION"; then
+            if [ -z "$(git tag -l "v$VERSION")" ]; then
+              git tag "v$VERSION" -m "Release v$VERSION"
+            fi
+            git push origin "v$VERSION"
+          fi
+
+          echo "resolved_version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Publish to npm
         run: |
-          VERSION="$(jq -r .version package.json)"
+          VERSION="${{ steps.resolve.outputs.resolved_version }}"
           NPM_TAG="latest"
           if echo "$VERSION" | grep -q '-'; then NPM_TAG="next"; fi
 
-          if npm view "@brainrotcreations/socials@$VERSION" version >/dev/null 2>&1; then
-            echo "@brainrotcreations/socials@$VERSION already exists on npm — skipping publish."
-          else
-            echo "Publishing @brainrotcreations/socials@$VERSION → npm tag: $NPM_TAG"
-            npm publish --access public --tag $NPM_TAG
-          fi
+          echo "Publishing @brainrotcreations/socials@$VERSION → npm tag: $NPM_TAG"
+          npm publish --access public --tag $NPM_TAG
 
           echo "Waiting for registry propagation..."
           sleep 15
@@ -104,12 +137,8 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
           npm install
 
-          if npm view "socials@$VERSION" version >/dev/null 2>&1; then
-            echo "socials@$VERSION already exists on npm — skipping publish."
-          else
-            echo "Publishing socials@$VERSION → npm tag: $NPM_TAG"
-            npm publish --access public --tag $NPM_TAG
-          fi
+          echo "Publishing socials@$VERSION → npm tag: $NPM_TAG"
+          npm publish --access public --tag $NPM_TAG
 
           cd ../..
         env:
@@ -117,7 +146,7 @@ jobs:
 
       - name: Create GitHub Release
         run: |
-          TAG="v${{ steps.bump.outputs.next_version }}"
+          TAG="v${{ steps.resolve.outputs.resolved_version }}"
           if gh release view "$TAG" &>/dev/null; then
             echo "Release $TAG already exists — skipping"
             exit 0
