@@ -70,6 +70,11 @@ export function assertPublicImageUrl(url: URL): void {
     if (/^f[cd][0-9a-f]{2}:/i.test(h)) {
       throw new Error("Unique-local IPv6 addresses are not allowed")
     }
+    // IPv4-mapped IPv6 (::ffff:x.x.x.x) embeds a private IPv4 — validate it
+    const ipv4Mapped = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(h)
+    if (ipv4Mapped) {
+      assertPublicImageUrl(new URL(`http://${ipv4Mapped[1]}/`))
+    }
     return
   }
 
@@ -114,7 +119,7 @@ export async function fetchImageFromUrl(
 
   const res = await fetch(url.toString(), {
     method: "GET",
-    redirect: "follow",
+    redirect: "error",
     headers: {
       Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
       "User-Agent": "Socials-MCP/1.1 (+https://socials.brainrotcreations.com)",
