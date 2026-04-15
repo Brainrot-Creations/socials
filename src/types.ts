@@ -43,6 +43,7 @@ export type ExtensionMessageType =
   | "x_profile"
   | "x_notifications"
   | "scroll_page"
+  | "apply_search_filters"
   // LinkedIn People Search
   | "linkedin_people_search"
   | "linkedin_get_people"

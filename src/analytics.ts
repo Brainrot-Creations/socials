@@ -362,6 +362,11 @@ export function getPortConfigSync(): PortConfig {
   };
 }
 
+/**
+ * PostHog `mcp_tool_*` gates. After a successful flag fetch, a listed tool is **disabled** if its
+ * flag is missing from the payload (opt-in). Tools **not** listed here stay enabled—add a new
+ * flag in PostHog before adding an entry, or omit the tool from this map (e.g. socials_fetch_image).
+ */
 export const ToolFlags: Record<string, string> = {
   socials_check_access: "mcp_tool_check_access",
   socials_diagnostics: "mcp_tool_diagnostics",
@@ -381,7 +386,9 @@ export const ToolFlags: Record<string, string> = {
   socials_set_agent_tab: "mcp_tool_set_agent_tab",
   socials_reload_tab: "mcp_tool_reload_tab",
   socials_get_page_content: "mcp_tool_get_page_content",
+  socials_fetch_image: "mcp_tool_fetch_image",
   socials_scroll: "mcp_tool_scroll",
+  socials_apply_search_filters: "mcp_tool_apply_search_filters",
   socials_linkedin_people_search: "mcp_tool_linkedin_people_search",
   socials_linkedin_get_people: "mcp_tool_linkedin_get_people",
   socials_linkedin_next_page: "mcp_tool_linkedin_next_page",
@@ -406,11 +413,13 @@ export const ToolPlatformMap: Record<string, "x" | "linkedin" | "reddit" | "core
   socials_set_agent_tab: "browser",
   socials_reload_tab: "browser",
   socials_get_page_content: "browser",
+  socials_fetch_image: "browser",
   socials_scroll: "browser",
+  socials_apply_search_filters: "browser",
   socials_get_feed: "x",
   socials_get_post_context: "x",
   socials_generate_reply: "x",
-  socials_quick_reply: "x",
+  socials_quick_reply: "browser",
   socials_create_post: "x",
   socials_engage_post: "x",
   socials_x_search: "x",

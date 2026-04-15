@@ -10,6 +10,7 @@ import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
 import { ExtensionBridge, initPortConfig, getCurrentPortConfig } from "./extension-bridge.js";
+import { fetchImageFromUrl } from "./fetch-image.js";
 import {
   trackServerStart,
   trackToolUsage,
@@ -217,7 +218,11 @@ const LinkedInPeopleSearchSchema = z.object({
 
 // Browser control schemas
 const OpenTabSchema = z.object({
-  url: z.string().describe("URL to open in new tab"),
+  url: z
+    .string()
+    .describe(
+      "URL to open. Examples: X/LinkedIn/Reddit feeds as usual; YouTube home https://www.youtube.com/ ; YouTube search results https://www.youtube.com/results?search_query=hello+kitty (encode search terms, e.g. encodeURIComponent).",
+    ),
   focus: z
     .boolean()
     .optional()
@@ -227,12 +232,81 @@ const OpenTabSchema = z.object({
 });
 
 const NavigateToSchema = z.object({
-  url: z.string().describe("URL to navigate to"),
+  url: z
+    .string()
+    .describe(
+      "URL to navigate to. Same patterns as socials_open_tab (e.g. YouTube results: https://www.youtube.com/results?search_query=... with encoded query).",
+    ),
   tab_id: z
     .number()
     .optional()
     .describe(
       "Tab ID to navigate. If omitted, navigates the pinned agent tab (from socials_open_tab), not necessarily the foreground tab.",
+    ),
+});
+
+const GetPageContentSchema = z.object({
+  tab_id: z
+    .number()
+    .optional()
+    .describe("Chrome tab ID; if omitted, uses the pinned agent tab."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(80)
+    .optional()
+    .describe(
+      "Max items to return. Defaults: 5 for X/LinkedIn/Reddit feed snippets, 40 for YouTube search video cards.",
+    ),
+  comment_sort: z
+    .enum(["top", "newest"])
+    .optional()
+    .describe(
+      "YouTube watch pages only. Optionally switch comment order before scraping comments.",
+    ),
+  comments_limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(120)
+    .optional()
+    .describe(
+      "YouTube watch pages only. Max comments to return (default 20).",
+    ),
+  expand_description: z
+    .boolean()
+    .optional()
+    .describe(
+      "YouTube watch pages only. Expand the description block before extraction (default true).",
+    ),
+});
+
+const FetchImageSchema = z.object({
+  url: z
+    .string()
+    .min(1)
+    .describe(
+      "Absolute http(s) URL of an image (YouTube i.ytimg.com, X/Twitter pbs.twimg.com, LinkedIn media, Reddit previews, etc.). Runs in the MCP server (no extra browser tab); public CDN URLs work best. Cookie-auth-only URLs may fail.",
+    ),
+});
+
+const ApplySearchFiltersSchema = z.object({
+  platform: z
+    .literal("youtube")
+    .describe("Search platform. YouTube is supported right now."),
+  filters: z
+    .array(z.string().min(1))
+    .min(1)
+    .describe(
+      "Filter labels to apply from the search filter popup (e.g. [\"Videos\", \"This week\", \"HD\"])."
+    ),
+  strict: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe(
+      "If true (default), fail when any filter label is missing. If false, apply what is found and report missing labels."
     ),
 });
 
@@ -255,7 +329,7 @@ const ReloadTabSchema = z.object({
 const server = new Server(
   {
     name: "claude-plugins",
-    version: "1.1.11",
+    version: "1.1.19",
   },
   {
     capabilities: {
@@ -288,7 +362,7 @@ const allTools = [
   {
     name: "socials_check_access",
         description:
-          "Check connection status. After confirming access, use socials_open_tab to open X/LinkedIn/Reddit. " +
+          "Check connection status. After confirming access, use socials_open_tab to open X, LinkedIn, Reddit, or YouTube (home, watch, or /results?search_query=... for search). " +
           "RECOVERY FLOW if this fails: 1) socials_refresh_auth 2) if still fails, socials_restart_bridge 3) user refreshes browser extension 4) retry check_access.",
         inputSchema: {
           type: "object",
@@ -374,15 +448,14 @@ const allTools = [
       {
         name: "socials_quick_reply",
         description:
-          "Reply to a tweet in the pinned agent tab's feed. " +
-          "Pass post_id (from socials_get_feed) and content (your reply text). " +
-          "IMPORTANT: Always confirm with the user before posting.",
+          "Post a reply in the pinned agent tab: **X** — tweet id from socials_get_feed; **LinkedIn** — post URN from feed; **YouTube watch** — `commentId` from socials_get_page_content `page_data.comments` (YouTube ?lc=… token), or a watch URL containing `lc=`. Opens reply UI, fills text, submits. YouTube: no media attachments. IMPORTANT: Always confirm exact text with the user before posting.",
         inputSchema: {
           type: "object",
           properties: {
             post_id: {
               type: "string",
-              description: "The tweet ID from socials_get_feed results (e.g. '2039054554721824939')",
+              description:
+                "X: numeric tweet id from socials_get_feed. LinkedIn: post URN from feed. YouTube watch: commentId (lc token) from socials_get_page_content page_data.comments, or a full watch URL including ?lc=…",
             },
             content: {
               type: "string",
@@ -624,7 +697,7 @@ const allTools = [
             url: {
               type: "string",
               description:
-                "URL to open. Use https://x.com/home for X feed, https://www.linkedin.com/feed/ for LinkedIn feed, and https://www.reddit.com/ (or a subreddit URL) for Reddit.",
+                "URL to open. X: https://x.com/home ; LinkedIn: https://www.linkedin.com/feed/ ; Reddit: https://www.reddit.com/ or a subreddit URL. YouTube: https://www.youtube.com/ (home) or a watch URL; to run a search open results, e.g. https://www.youtube.com/results?search_query=hello+kitty — always URL-encode the search_query value (encodeURIComponent semantics).",
             },
             focus: {
               type: "boolean",
@@ -644,7 +717,8 @@ const allTools = [
           properties: {
             url: {
               type: "string",
-              description: "URL to navigate to",
+              description:
+                "URL to navigate to. Use the same patterns as socials_open_tab (including YouTube search: https://www.youtube.com/results?search_query=... with encoded query).",
             },
             tab_id: {
               type: "number",
@@ -668,7 +742,7 @@ const allTools = [
       {
         name: "socials_get_agent_tab",
         description:
-          "Get the pinned Socials agent tab (URL, title, platform). Null if none set yet—then call socials_open_tab.",
+          "Get the pinned Socials agent tab (URL, title, platform: x, linkedin, reddit, youtube, or null). Null if none set yet—then call socials_open_tab.",
         inputSchema: {
           type: "object",
           properties: {},
@@ -688,7 +762,7 @@ const allTools = [
       {
         name: "socials_set_agent_tab",
         description:
-          "Pin an existing tab as the agent tab (e.g. you already have X open). Pass tab_id from socials_get_active_tab.",
+          "Pin an existing tab as the agent tab (e.g. X, LinkedIn, Reddit, or YouTube already open). Pass tab_id from socials_get_active_tab.",
         inputSchema: {
           type: "object",
           properties: {
@@ -718,10 +792,36 @@ const allTools = [
       {
         name: "socials_get_page_content",
         description:
-          "Get posts from the pinned agent tab (or foreground tab if no pin). Use socials_open_tab first.",
+          "Get structured content from the pinned agent tab. YouTube search results (/results?search_query=…) return video cards with auto-scroll. YouTube watch pages (/watch?v=…) return structured video metadata (title/channel/views/likes/description) plus comments, and can optionally switch comment sort (top/newest) before scraping.",
         inputSchema: {
           type: "object",
-          properties: {},
+          properties: {
+            tab_id: {
+              type: "number",
+              description: "Optional Chrome tab ID; default is pinned agent tab.",
+            },
+            limit: {
+              type: "number",
+              description:
+                "Max cards/posts (1–80). Default 40 on YouTube search, 5 elsewhere.",
+            },
+            comment_sort: {
+              type: "string",
+              enum: ["top", "newest"],
+              description:
+                "YouTube watch pages only. Apply comment sort before reading comments.",
+            },
+            comments_limit: {
+              type: "number",
+              description:
+                "YouTube watch pages only. Max comments to collect (1–120, default 20).",
+            },
+            expand_description: {
+              type: "boolean",
+              description:
+                "YouTube watch pages only. Expand description before extraction (default true).",
+            },
+          },
           required: [],
         },
       },
@@ -743,6 +843,48 @@ const allTools = [
             },
           },
           required: [],
+        },
+      },
+      {
+        name: "socials_apply_search_filters",
+        description:
+          "Apply filters on a search results page using a standard interface. Current implementation: YouTube search results (opens 'Filters' popup, clicks labels, waits for reload between applied filters).",
+        inputSchema: {
+          type: "object",
+          properties: {
+            platform: {
+              type: "string",
+              enum: ["youtube"],
+              description: "Search platform (currently youtube).",
+            },
+            filters: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Filter labels to apply, e.g. [\"Videos\", \"This week\", \"HD\"].",
+            },
+            strict: {
+              type: "boolean",
+              description:
+                "Default true. If true, fail when any filter isn't found. If false, partial success is allowed.",
+            },
+          },
+          required: ["platform", "filters"],
+        },
+      },
+      {
+        name: "socials_fetch_image",
+        description:
+          "Download an image by URL and return it for visual inspection (MCP image content + JSON metadata). Token/cost guidance: image payloads are expensive, so use this only when visual inspection materially improves the answer (e.g. comparing thumbnails, checking visual details). Prefer URLs/text metadata when sufficient. Requires Socials Pro + extension connected like other MCP tools. Fetches from the MCP process (public URLs); cookie-gated images may need another approach.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description: "Direct http(s) link to an image file (e.g. thumbnail URL).",
+            },
+          },
+          required: ["url"],
         },
       },
       // LinkedIn People Search tools
@@ -1323,8 +1465,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         // Track reply sent with content analysis and timing
         const elapsed = getElapsed();
-        trackReplySent("x", content, result.success, elapsed);
-        await trackToolUsage(name, "x", result.success, elapsed);
+        const replyPlatform = result.platform ?? "browser";
+        trackReplySent(replyPlatform, content, result.success, elapsed);
+        await trackToolUsage(name, replyPlatform, result.success, elapsed);
 
         return {
           content: [
@@ -1333,6 +1476,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: JSON.stringify({
                 success: result.success,
                 error: result.error,
+                platform: result.platform ?? undefined,
               }),
             },
           ],
@@ -1826,19 +1970,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "socials_get_page_content": {
         await requireProAccess();
-        const tabId =
-          args && typeof args === "object" && "tab_id" in args
-            ? (args as { tab_id?: number }).tab_id
-            : undefined;
-        const result = await bridge.getPageContent(tabId);
+        const parsed = GetPageContentSchema.parse(
+          args && typeof args === "object" ? args : {}
+        );
+        const result = await bridge.getPageContent(
+          parsed.tab_id,
+          parsed.limit,
+          {
+            commentSort: parsed.comment_sort,
+            commentsLimit: parsed.comments_limit,
+            expandDescription: parsed.expand_description,
+          }
+        );
+
+        const defaultLimit = result.platform === "youtube" ? 40 : 5;
+        const limit = Math.min(
+          80,
+          Math.max(1, parsed.limit ?? defaultLimit)
+        );
 
         const payload: Record<string, unknown> = {
           platform: result.platform,
           url: result.url,
-          posts: result.posts.slice(0, 5),
+          title: result.title,
+          posts: result.posts.slice(0, limit),
         };
         if (process.env.SOCIALS_MCP_DEBUG === "1") {
           payload.debug = (result as { debug?: unknown }).debug;
+        }
+        if ((result as { pageData?: unknown }).pageData) {
+          payload.page_data = (result as { pageData?: unknown }).pageData;
         }
         await trackToolUsage(name, result.platform, true, getElapsed());
 
@@ -1864,6 +2025,58 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: "text",
               text: JSON.stringify({ success: true }),
+            },
+          ],
+        };
+      }
+
+      case "socials_apply_search_filters": {
+        await requireProAccess();
+        const parsed = ApplySearchFiltersSchema.parse(
+          args && typeof args === "object" ? args : {}
+        );
+        const result = await bridge.applySearchFilters({
+          platform: parsed.platform,
+          filters: parsed.filters,
+          strict: parsed.strict,
+        });
+        await trackToolUsage(name, parsed.platform, result.success, getElapsed());
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(result),
+            },
+          ],
+          ...(result.success ? {} : { isError: true }),
+        };
+      }
+
+      case "socials_fetch_image": {
+        await requireProAccess();
+        const parsed = FetchImageSchema.parse(
+          args && typeof args === "object" ? args : {}
+        );
+        const { mimeType, base64, byteLength } = await fetchImageFromUrl(
+          parsed.url
+        );
+        await trackToolUsage(name, null, true, getElapsed());
+
+        return {
+          content: [
+            {
+              type: "image",
+              data: base64,
+              mimeType,
+            },
+            {
+              type: "text",
+              text: JSON.stringify({
+                url: parsed.url,
+                mimeType,
+                bytes: byteLength,
+              }),
             },
           ],
         };
@@ -2123,7 +2336,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               type: "text",
               text: JSON.stringify({
                 status: "ok",
-                version: "1.1.11",
+                version: "1.1.19",
                 extension_connected: extensionConnected,
                 health,
                 engagement,

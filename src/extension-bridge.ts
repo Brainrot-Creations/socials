@@ -590,18 +590,34 @@ export class ExtensionBridge {
     return this.sendRequest<{ success: boolean }>("reload_tab", { tabId });
   }
 
-  async getPageContent(tabId?: number): Promise<{
+  async getPageContent(
+    tabId?: number,
+    maxCards?: number,
+    options?: {
+      commentSort?: "top" | "newest";
+      commentsLimit?: number;
+      expandDescription?: boolean;
+    }
+  ): Promise<{
     url: string;
     title: string;
     platform: string | null;
     posts: unknown[];
+    pageData?: unknown;
   }> {
     return this.sendRequest<{
       url: string;
       title: string;
       platform: string | null;
       posts: unknown[];
-    }>("get_page_content", { tabId });
+      pageData?: unknown;
+    }>("get_page_content", {
+      tabId,
+      maxCards,
+      commentSort: options?.commentSort,
+      commentsLimit: options?.commentsLimit,
+      expandDescription: options?.expandDescription,
+    });
   }
 
   async quickReply(
@@ -614,8 +630,11 @@ export class ExtensionBridge {
       mimeType?: string;
       type: "image" | "video" | "gif";
     }>
-  ): Promise<{ success: boolean; error?: string }> {
-    return this.sendRequest<{ success: boolean; error?: string }>("quick_reply", { postId, content, media });
+  ): Promise<{ success: boolean; error?: string; platform?: string | null }> {
+    return this.sendRequest<{ success: boolean; error?: string; platform?: string | null }>(
+      "quick_reply",
+      { postId, content, media }
+    );
   }
 
   async quoteTweet(
@@ -739,6 +758,30 @@ export class ExtensionBridge {
 
   async scrollPage(direction: string, amount: number): Promise<{ success: boolean }> {
     return this.sendRequest<{ success: boolean }>("scroll_page", { direction, amount });
+  }
+
+  async applySearchFilters(payload: {
+    platform: "youtube";
+    filters: string[];
+    strict?: boolean;
+  }): Promise<{
+    success: boolean;
+    url?: string;
+    applied?: string[];
+    alreadySelected?: string[];
+    missing?: string[];
+    available?: string[];
+    error?: string;
+  }> {
+    return this.sendRequest<{
+      success: boolean;
+      url?: string;
+      applied?: string[];
+      alreadySelected?: string[];
+      missing?: string[];
+      available?: string[];
+      error?: string;
+    }>("apply_search_filters", payload);
   }
 
   // LinkedIn People Search methods
