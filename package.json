@@ -1,6 +1,6 @@
 {
   "name": "@brainrotcreations/socials",
-  "version": "1.1.17",
+  "version": "1.1.18",
   "description": "MCP server for the Socials browser extension — post, engage, search, and manage social media from Claude Code",
   "type": "module",
   "main": "dist/index.cjs",
@@ -32,7 +32,8 @@
     "x",
     "twitter",
     "linkedin",
-    "reddit"
+    "reddit",
+    "youtube"
   ],
   "homepage": "https://brainrotcreations.com",
   "repository": {

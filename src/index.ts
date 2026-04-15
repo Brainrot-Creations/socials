@@ -217,7 +217,11 @@ const LinkedInPeopleSearchSchema = z.object({
 
 // Browser control schemas
 const OpenTabSchema = z.object({
-  url: z.string().describe("URL to open in new tab"),
+  url: z
+    .string()
+    .describe(
+      "URL to open. Examples: X/LinkedIn/Reddit feeds as usual; YouTube home https://www.youtube.com/ ; YouTube search results https://www.youtube.com/results?search_query=hello+kitty (encode search terms, e.g. encodeURIComponent).",
+    ),
   focus: z
     .boolean()
     .optional()
@@ -227,7 +231,11 @@ const OpenTabSchema = z.object({
 });
 
 const NavigateToSchema = z.object({
-  url: z.string().describe("URL to navigate to"),
+  url: z
+    .string()
+    .describe(
+      "URL to navigate to. Same patterns as socials_open_tab (e.g. YouTube results: https://www.youtube.com/results?search_query=... with encoded query).",
+    ),
   tab_id: z
     .number()
     .optional()
@@ -255,7 +263,7 @@ const ReloadTabSchema = z.object({
 const server = new Server(
   {
     name: "claude-plugins",
-    version: "1.1.11",
+    version: "1.1.18",
   },
   {
     capabilities: {
@@ -288,7 +296,7 @@ const allTools = [
   {
     name: "socials_check_access",
         description:
-          "Check connection status. After confirming access, use socials_open_tab to open X/LinkedIn/Reddit. " +
+          "Check connection status. After confirming access, use socials_open_tab to open X, LinkedIn, Reddit, or YouTube (home, watch, or /results?search_query=... for search). " +
           "RECOVERY FLOW if this fails: 1) socials_refresh_auth 2) if still fails, socials_restart_bridge 3) user refreshes browser extension 4) retry check_access.",
         inputSchema: {
           type: "object",
@@ -624,7 +632,7 @@ const allTools = [
             url: {
               type: "string",
               description:
-                "URL to open. Use https://x.com/home for X feed, https://www.linkedin.com/feed/ for LinkedIn feed, and https://www.reddit.com/ (or a subreddit URL) for Reddit.",
+                "URL to open. X: https://x.com/home ; LinkedIn: https://www.linkedin.com/feed/ ; Reddit: https://www.reddit.com/ or a subreddit URL. YouTube: https://www.youtube.com/ (home) or a watch URL; to run a search open results, e.g. https://www.youtube.com/results?search_query=hello+kitty — always URL-encode the search_query value (encodeURIComponent semantics).",
             },
             focus: {
               type: "boolean",
@@ -644,7 +652,8 @@ const allTools = [
           properties: {
             url: {
               type: "string",
-              description: "URL to navigate to",
+              description:
+                "URL to navigate to. Use the same patterns as socials_open_tab (including YouTube search: https://www.youtube.com/results?search_query=... with encoded query).",
             },
             tab_id: {
               type: "number",
@@ -668,7 +677,7 @@ const allTools = [
       {
         name: "socials_get_agent_tab",
         description:
-          "Get the pinned Socials agent tab (URL, title, platform). Null if none set yet—then call socials_open_tab.",
+          "Get the pinned Socials agent tab (URL, title, platform: x, linkedin, reddit, youtube, or null). Null if none set yet—then call socials_open_tab.",
         inputSchema: {
           type: "object",
           properties: {},
@@ -688,7 +697,7 @@ const allTools = [
       {
         name: "socials_set_agent_tab",
         description:
-          "Pin an existing tab as the agent tab (e.g. you already have X open). Pass tab_id from socials_get_active_tab.",
+          "Pin an existing tab as the agent tab (e.g. X, LinkedIn, Reddit, or YouTube already open). Pass tab_id from socials_get_active_tab.",
         inputSchema: {
           type: "object",
           properties: {
@@ -2123,7 +2132,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               type: "text",
               text: JSON.stringify({
                 status: "ok",
-                version: "1.1.11",
+                version: "1.1.18",
                 extension_connected: extensionConnected,
                 health,
                 engagement,
