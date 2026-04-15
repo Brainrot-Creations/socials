@@ -448,15 +448,14 @@ const allTools = [
       {
         name: "socials_quick_reply",
         description:
-          "Reply to a tweet in the pinned agent tab's feed. " +
-          "Pass post_id (from socials_get_feed) and content (your reply text). " +
-          "IMPORTANT: Always confirm with the user before posting.",
+          "Post a reply in the pinned agent tab: **X** — tweet id from socials_get_feed; **LinkedIn** — post URN from feed; **YouTube watch** — `commentId` from socials_get_page_content `page_data.comments` (YouTube ?lc=… token), or a watch URL containing `lc=`. Opens reply UI, fills text, submits. YouTube: no media attachments. IMPORTANT: Always confirm exact text with the user before posting.",
         inputSchema: {
           type: "object",
           properties: {
             post_id: {
               type: "string",
-              description: "The tweet ID from socials_get_feed results (e.g. '2039054554721824939')",
+              description:
+                "X: numeric tweet id from socials_get_feed. LinkedIn: post URN from feed. YouTube watch: commentId (lc token) from socials_get_page_content page_data.comments, or a full watch URL including ?lc=…",
             },
             content: {
               type: "string",
@@ -1466,8 +1465,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         // Track reply sent with content analysis and timing
         const elapsed = getElapsed();
-        trackReplySent("x", content, result.success, elapsed);
-        await trackToolUsage(name, "x", result.success, elapsed);
+        const replyPlatform = result.platform ?? "browser";
+        trackReplySent(replyPlatform, content, result.success, elapsed);
+        await trackToolUsage(name, replyPlatform, result.success, elapsed);
 
         return {
           content: [
@@ -1476,6 +1476,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: JSON.stringify({
                 success: result.success,
                 error: result.error,
+                platform: result.platform ?? undefined,
               }),
             },
           ],

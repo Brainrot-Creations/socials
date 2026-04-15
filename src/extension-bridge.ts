@@ -630,8 +630,11 @@ export class ExtensionBridge {
       mimeType?: string;
       type: "image" | "video" | "gif";
     }>
-  ): Promise<{ success: boolean; error?: string }> {
-    return this.sendRequest<{ success: boolean; error?: string }>("quick_reply", { postId, content, media });
+  ): Promise<{ success: boolean; error?: string; platform?: string | null }> {
+    return this.sendRequest<{ success: boolean; error?: string; platform?: string | null }>(
+      "quick_reply",
+      { postId, content, media }
+    );
   }
 
   async quoteTweet(

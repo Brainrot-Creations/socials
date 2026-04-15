@@ -419,7 +419,7 @@ export const ToolPlatformMap: Record<string, "x" | "linkedin" | "reddit" | "core
   socials_get_feed: "x",
   socials_get_post_context: "x",
   socials_generate_reply: "x",
-  socials_quick_reply: "x",
+  socials_quick_reply: "browser",
   socials_create_post: "x",
   socials_engage_post: "x",
   socials_x_search: "x",

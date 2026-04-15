@@ -1,25 +1,16 @@
-<p align="center">
-  <img src="./assets/socials.gif" alt="Socials" width="100%" />
-</p>
 
-<h1 align="center">Socials MCP</h1>
 
-<p align="center">
-  <strong>Give Claude superpowers on X, LinkedIn, and Reddit.</strong>
-</p>
+# Socials MCP
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/@brainrotcreations/socials"><img src="https://img.shields.io/npm/v/@brainrotcreations/socials?label=%40brainrotcreations%2Fsocials" alt="npm" /></a>
-  <a href="https://www.npmjs.com/package/socials"><img src="https://img.shields.io/npm/v/socials?label=socials" alt="npm unscoped" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
-</p>
+**Give Claude superpowers on X, LinkedIn, and Reddit.**
+
+
 
 ---
 
 ## Install
 
 1. Install the [Socials Chrome extension](https://chromewebstore.google.com/detail/socials-generate-posts-in/pmpemhbbmaicdmnlmenopaclpdfnllje)
-
 2. In Claude Code:
 
 ```
@@ -36,9 +27,9 @@
 
 Done. Talk to Claude naturally:
 
-- _"Connect with 100 LinkedIn recruiters hiring for React roles"_
-- _"Find Reddit threads about note-taking and mention my app naturally"_
-- _"Reply to 50 X posts about indie hacking and promote my SaaS"_
+- *"Connect with 100 LinkedIn recruiters hiring for React roles"*
+- *"Find Reddit threads about note-taking and mention my app naturally"*
+- *"Reply to 50 X posts about indie hacking and promote my SaaS"*
 
 ---
 
@@ -67,14 +58,14 @@ npm run release:dry # preview a release without publishing
 
 ### Use local MCP in plugin dev mode
 
-1) Build local MCP:
+1. Build local MCP:
 
 ```bash
 cd socials/mcp
 npm run build
 ```
 
-2) Set dev mode in `claude-plugins/plugins/socials/.mcp.json`:
+1. Set dev mode in `claude-plugins/plugins/socials/.mcp.json`:
 
 ```json
 {
@@ -89,7 +80,7 @@ npm run build
 }
 ```
 
-3) Restart Claude Code.
+1. Restart Claude Code.
 
 To switch back to published npm package, set `"SOCIALS_MCP_DEV_MODE": "0"` and restart.
 
