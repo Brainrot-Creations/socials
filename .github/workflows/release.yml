@@ -71,9 +71,20 @@ jobs:
         if: steps.bump.outputs.already_tagged == 'true'
         run: npm run build
 
+      - name: Ensure release version is synced
+        run: |
+          EXPECTED="${{ steps.bump.outputs.next_version }}"
+          CURRENT="$(jq -r .version package.json)"
+          if [ "$CURRENT" != "$EXPECTED" ]; then
+            echo "Version mismatch detected (current=$CURRENT expected=$EXPECTED). Syncing package manifests..."
+            jq --arg v "$EXPECTED" '.version = $v' package.json > package.tmp.json && mv package.tmp.json package.json
+            jq --arg v "$EXPECTED" '.version = $v | .dependencies["@brainrotcreations/socials"] = $v' packages/unscoped/package.json > packages/unscoped/package.tmp.json && mv packages/unscoped/package.tmp.json packages/unscoped/package.json
+          fi
+          echo "version=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
+
       - name: Publish to npm
         run: |
-          VERSION="${{ steps.bump.outputs.next_version }}"
+          VERSION="$(jq -r .version package.json)"
           NPM_TAG="latest"
           if echo "$VERSION" | grep -q '-'; then NPM_TAG="next"; fi
 
