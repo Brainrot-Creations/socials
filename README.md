@@ -84,7 +84,7 @@ npm run build
 
 To switch back to published npm package, set `"SOCIALS_MCP_DEV_MODE": "0"` and restart.
 
-Releases are automated via CI — commit to `main` with `[release:patch]`, `[release:minor]`, or `[release:major]` in the message to publish.
+Releases are automated via CI — push to `main` with `[release:patch]`, `[release:minor]`, or `[release:major]` in the commit message to fast-track publishing.
 
 ---
 
