@@ -362,6 +362,11 @@ export function getPortConfigSync(): PortConfig {
   };
 }
 
+/**
+ * PostHog `mcp_tool_*` gates. After a successful flag fetch, a listed tool is **disabled** if its
+ * flag is missing from the payload (opt-in). Tools **not** listed here stay enabled—add a new
+ * flag in PostHog before adding an entry, or omit the tool from this map (e.g. socials_fetch_image).
+ */
 export const ToolFlags: Record<string, string> = {
   socials_check_access: "mcp_tool_check_access",
   socials_diagnostics: "mcp_tool_diagnostics",
@@ -406,6 +411,7 @@ export const ToolPlatformMap: Record<string, "x" | "linkedin" | "reddit" | "core
   socials_set_agent_tab: "browser",
   socials_reload_tab: "browser",
   socials_get_page_content: "browser",
+  socials_fetch_image: "browser",
   socials_scroll: "browser",
   socials_get_feed: "x",
   socials_get_post_context: "x",

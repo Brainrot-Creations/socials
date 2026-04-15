@@ -10,6 +10,7 @@ import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
 import { ExtensionBridge, initPortConfig, getCurrentPortConfig } from "./extension-bridge.js";
+import { fetchImageFromUrl } from "./fetch-image.js";
 import {
   trackServerStart,
   trackToolUsage,
@@ -244,6 +245,31 @@ const NavigateToSchema = z.object({
     ),
 });
 
+const GetPageContentSchema = z.object({
+  tab_id: z
+    .number()
+    .optional()
+    .describe("Chrome tab ID; if omitted, uses the pinned agent tab."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(80)
+    .optional()
+    .describe(
+      "Max items to return. Defaults: 5 for X/LinkedIn/Reddit feed snippets, 40 for YouTube search video cards.",
+    ),
+});
+
+const FetchImageSchema = z.object({
+  url: z
+    .string()
+    .min(1)
+    .describe(
+      "Absolute http(s) URL of an image (YouTube i.ytimg.com, X/Twitter pbs.twimg.com, LinkedIn media, Reddit previews, etc.). Runs in the MCP server (no extra browser tab); public CDN URLs work best. Cookie-auth-only URLs may fail.",
+    ),
+});
+
 const SetAgentTabSchema = z.object({
   tab_id: z
     .number()
@@ -263,7 +289,7 @@ const ReloadTabSchema = z.object({
 const server = new Server(
   {
     name: "claude-plugins",
-    version: "1.1.18",
+    version: "1.1.19",
   },
   {
     capabilities: {
@@ -727,10 +753,20 @@ const allTools = [
       {
         name: "socials_get_page_content",
         description:
-          "Get posts from the pinned agent tab (or foreground tab if no pin). Use socials_open_tab first.",
+          "Get structured content from the pinned agent tab. On YouTube **search results** (/results?search_query=…), returns video cards (title, url, thumbnail, channel, views, etc.); the extension **scrolls the results column** between scrapes (like infinite feed) until your limit is met or new rows stop appearing. Other platforms: feed snippets via the extension content script. Use socials_open_tab first.",
         inputSchema: {
           type: "object",
-          properties: {},
+          properties: {
+            tab_id: {
+              type: "number",
+              description: "Optional Chrome tab ID; default is pinned agent tab.",
+            },
+            limit: {
+              type: "number",
+              description:
+                "Max cards/posts (1–80). Default 40 on YouTube search, 5 elsewhere.",
+            },
+          },
           required: [],
         },
       },
@@ -752,6 +788,21 @@ const allTools = [
             },
           },
           required: [],
+        },
+      },
+      {
+        name: "socials_fetch_image",
+        description:
+          "Download an image by URL and return it for visual inspection (MCP image content + JSON metadata). Use for batching thumbnails from socials_get_page_content, X media URLs, Reddit previews, etc. Requires Socials Pro + extension connected like other MCP tools. Fetches from the MCP process (public URLs); cookie-gated images may need another approach.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description: "Direct http(s) link to an image file (e.g. thumbnail URL).",
+            },
+          },
+          required: ["url"],
         },
       },
       // LinkedIn People Search tools
@@ -1835,16 +1886,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "socials_get_page_content": {
         await requireProAccess();
-        const tabId =
-          args && typeof args === "object" && "tab_id" in args
-            ? (args as { tab_id?: number }).tab_id
-            : undefined;
-        const result = await bridge.getPageContent(tabId);
+        const parsed = GetPageContentSchema.parse(
+          args && typeof args === "object" ? args : {}
+        );
+        const result = await bridge.getPageContent(
+          parsed.tab_id,
+          parsed.limit
+        );
+
+        const defaultLimit = result.platform === "youtube" ? 40 : 5;
+        const limit = Math.min(
+          80,
+          Math.max(1, parsed.limit ?? defaultLimit)
+        );
 
         const payload: Record<string, unknown> = {
           platform: result.platform,
           url: result.url,
-          posts: result.posts.slice(0, 5),
+          title: result.title,
+          posts: result.posts.slice(0, limit),
         };
         if (process.env.SOCIALS_MCP_DEBUG === "1") {
           payload.debug = (result as { debug?: unknown }).debug;
@@ -1873,6 +1933,35 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: "text",
               text: JSON.stringify({ success: true }),
+            },
+          ],
+        };
+      }
+
+      case "socials_fetch_image": {
+        await requireProAccess();
+        const parsed = FetchImageSchema.parse(
+          args && typeof args === "object" ? args : {}
+        );
+        const { mimeType, base64, byteLength } = await fetchImageFromUrl(
+          parsed.url
+        );
+        await trackToolUsage(name, null, true, getElapsed());
+
+        return {
+          content: [
+            {
+              type: "image",
+              data: base64,
+              mimeType,
+            },
+            {
+              type: "text",
+              text: JSON.stringify({
+                url: parsed.url,
+                mimeType,
+                bytes: byteLength,
+              }),
             },
           ],
         };
@@ -2132,7 +2221,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               type: "text",
               text: JSON.stringify({
                 status: "ok",
-                version: "1.1.18",
+                version: "1.1.19",
                 extension_connected: extensionConnected,
                 health,
                 engagement,

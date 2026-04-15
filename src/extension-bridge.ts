@@ -590,7 +590,10 @@ export class ExtensionBridge {
     return this.sendRequest<{ success: boolean }>("reload_tab", { tabId });
   }
 
-  async getPageContent(tabId?: number): Promise<{
+  async getPageContent(
+    tabId?: number,
+    maxCards?: number
+  ): Promise<{
     url: string;
     title: string;
     platform: string | null;
@@ -601,7 +604,7 @@ export class ExtensionBridge {
       title: string;
       platform: string | null;
       posts: unknown[];
-    }>("get_page_content", { tabId });
+    }>("get_page_content", { tabId, maxCards });
   }
 
   async quickReply(

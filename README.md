@@ -65,6 +65,34 @@ npm run typecheck   # type check
 npm run release:dry # preview a release without publishing
 ```
 
+### Use local MCP in plugin dev mode
+
+1) Build local MCP:
+
+```bash
+cd socials/mcp
+npm run build
+```
+
+2) Set dev mode in `claude-plugins/plugins/socials/.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "socials": {
+      "env": {
+        "SOCIALS_MCP_DEV_MODE": "1",
+        "SOCIALS_MCP_DEV_MCP_PATH": "/absolute/path/to/socials/mcp/dist/index.cjs"
+      }
+    }
+  }
+}
+```
+
+3) Restart Claude Code.
+
+To switch back to published npm package, set `"SOCIALS_MCP_DEV_MODE": "0"` and restart.
+
 Releases are automated via CI — commit to `main` with `[release:patch]`, `[release:minor]`, or `[release:major]` in the message to publish.
 
 ---
