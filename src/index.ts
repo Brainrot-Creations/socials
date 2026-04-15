@@ -259,6 +259,27 @@ const GetPageContentSchema = z.object({
     .describe(
       "Max items to return. Defaults: 5 for X/LinkedIn/Reddit feed snippets, 40 for YouTube search video cards.",
     ),
+  comment_sort: z
+    .enum(["top", "newest"])
+    .optional()
+    .describe(
+      "YouTube watch pages only. Optionally switch comment order before scraping comments.",
+    ),
+  comments_limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(120)
+    .optional()
+    .describe(
+      "YouTube watch pages only. Max comments to return (default 20).",
+    ),
+  expand_description: z
+    .boolean()
+    .optional()
+    .describe(
+      "YouTube watch pages only. Expand the description block before extraction (default true).",
+    ),
 });
 
 const FetchImageSchema = z.object({
@@ -267,6 +288,25 @@ const FetchImageSchema = z.object({
     .min(1)
     .describe(
       "Absolute http(s) URL of an image (YouTube i.ytimg.com, X/Twitter pbs.twimg.com, LinkedIn media, Reddit previews, etc.). Runs in the MCP server (no extra browser tab); public CDN URLs work best. Cookie-auth-only URLs may fail.",
+    ),
+});
+
+const ApplySearchFiltersSchema = z.object({
+  platform: z
+    .literal("youtube")
+    .describe("Search platform. YouTube is supported right now."),
+  filters: z
+    .array(z.string().min(1))
+    .min(1)
+    .describe(
+      "Filter labels to apply from the search filter popup (e.g. [\"Videos\", \"This week\", \"HD\"])."
+    ),
+  strict: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe(
+      "If true (default), fail when any filter label is missing. If false, apply what is found and report missing labels."
     ),
 });
 
@@ -753,7 +793,7 @@ const allTools = [
       {
         name: "socials_get_page_content",
         description:
-          "Get structured content from the pinned agent tab. On YouTube **search results** (/results?search_query=…), returns video cards (title, url, thumbnail, channel, views, etc.); the extension **scrolls the results column** between scrapes (like infinite feed) until your limit is met or new rows stop appearing. Other platforms: feed snippets via the extension content script. Use socials_open_tab first.",
+          "Get structured content from the pinned agent tab. YouTube search results (/results?search_query=…) return video cards with auto-scroll. YouTube watch pages (/watch?v=…) return structured video metadata (title/channel/views/likes/description) plus comments, and can optionally switch comment sort (top/newest) before scraping.",
         inputSchema: {
           type: "object",
           properties: {
@@ -765,6 +805,22 @@ const allTools = [
               type: "number",
               description:
                 "Max cards/posts (1–80). Default 40 on YouTube search, 5 elsewhere.",
+            },
+            comment_sort: {
+              type: "string",
+              enum: ["top", "newest"],
+              description:
+                "YouTube watch pages only. Apply comment sort before reading comments.",
+            },
+            comments_limit: {
+              type: "number",
+              description:
+                "YouTube watch pages only. Max comments to collect (1–120, default 20).",
+            },
+            expand_description: {
+              type: "boolean",
+              description:
+                "YouTube watch pages only. Expand description before extraction (default true).",
             },
           },
           required: [],
@@ -788,6 +844,33 @@ const allTools = [
             },
           },
           required: [],
+        },
+      },
+      {
+        name: "socials_apply_search_filters",
+        description:
+          "Apply filters on a search results page using a standard interface. Current implementation: YouTube search results (opens 'Filters' popup, clicks labels, waits for reload between applied filters).",
+        inputSchema: {
+          type: "object",
+          properties: {
+            platform: {
+              type: "string",
+              enum: ["youtube"],
+              description: "Search platform (currently youtube).",
+            },
+            filters: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Filter labels to apply, e.g. [\"Videos\", \"This week\", \"HD\"].",
+            },
+            strict: {
+              type: "boolean",
+              description:
+                "Default true. If true, fail when any filter isn't found. If false, partial success is allowed.",
+            },
+          },
+          required: ["platform", "filters"],
         },
       },
       {
@@ -1891,7 +1974,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         );
         const result = await bridge.getPageContent(
           parsed.tab_id,
-          parsed.limit
+          parsed.limit,
+          {
+            commentSort: parsed.comment_sort,
+            commentsLimit: parsed.comments_limit,
+            expandDescription: parsed.expand_description,
+          }
         );
 
         const defaultLimit = result.platform === "youtube" ? 40 : 5;
@@ -1908,6 +1996,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
         if (process.env.SOCIALS_MCP_DEBUG === "1") {
           payload.debug = (result as { debug?: unknown }).debug;
+        }
+        if ((result as { pageData?: unknown }).pageData) {
+          payload.page_data = (result as { pageData?: unknown }).pageData;
         }
         await trackToolUsage(name, result.platform, true, getElapsed());
 
@@ -1935,6 +2026,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: JSON.stringify({ success: true }),
             },
           ],
+        };
+      }
+
+      case "socials_apply_search_filters": {
+        await requireProAccess();
+        const parsed = ApplySearchFiltersSchema.parse(
+          args && typeof args === "object" ? args : {}
+        );
+        const result = await bridge.applySearchFilters({
+          platform: parsed.platform,
+          filters: parsed.filters,
+          strict: parsed.strict,
+        });
+        await trackToolUsage(name, parsed.platform, result.success, getElapsed());
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(result),
+            },
+          ],
+          ...(result.success ? {} : { isError: true }),
         };
       }
 

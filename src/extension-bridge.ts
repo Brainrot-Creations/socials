@@ -592,19 +592,32 @@ export class ExtensionBridge {
 
   async getPageContent(
     tabId?: number,
-    maxCards?: number
+    maxCards?: number,
+    options?: {
+      commentSort?: "top" | "newest";
+      commentsLimit?: number;
+      expandDescription?: boolean;
+    }
   ): Promise<{
     url: string;
     title: string;
     platform: string | null;
     posts: unknown[];
+    pageData?: unknown;
   }> {
     return this.sendRequest<{
       url: string;
       title: string;
       platform: string | null;
       posts: unknown[];
-    }>("get_page_content", { tabId, maxCards });
+      pageData?: unknown;
+    }>("get_page_content", {
+      tabId,
+      maxCards,
+      commentSort: options?.commentSort,
+      commentsLimit: options?.commentsLimit,
+      expandDescription: options?.expandDescription,
+    });
   }
 
   async quickReply(
@@ -742,6 +755,30 @@ export class ExtensionBridge {
 
   async scrollPage(direction: string, amount: number): Promise<{ success: boolean }> {
     return this.sendRequest<{ success: boolean }>("scroll_page", { direction, amount });
+  }
+
+  async applySearchFilters(payload: {
+    platform: "youtube";
+    filters: string[];
+    strict?: boolean;
+  }): Promise<{
+    success: boolean;
+    url?: string;
+    applied?: string[];
+    alreadySelected?: string[];
+    missing?: string[];
+    available?: string[];
+    error?: string;
+  }> {
+    return this.sendRequest<{
+      success: boolean;
+      url?: string;
+      applied?: string[];
+      alreadySelected?: string[];
+      missing?: string[];
+      available?: string[];
+      error?: string;
+    }>("apply_search_filters", payload);
   }
 
   // LinkedIn People Search methods
