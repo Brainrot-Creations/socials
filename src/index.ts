@@ -793,7 +793,7 @@ const allTools = [
       {
         name: "socials_fetch_image",
         description:
-          "Download an image by URL and return it for visual inspection (MCP image content + JSON metadata). Use for batching thumbnails from socials_get_page_content, X media URLs, Reddit previews, etc. Requires Socials Pro + extension connected like other MCP tools. Fetches from the MCP process (public URLs); cookie-gated images may need another approach.",
+          "Download an image by URL and return it for visual inspection (MCP image content + JSON metadata). Token/cost guidance: image payloads are expensive, so use this only when visual inspection materially improves the answer (e.g. comparing thumbnails, checking visual details). Prefer URLs/text metadata when sufficient. Requires Socials Pro + extension connected like other MCP tools. Fetches from the MCP process (public URLs); cookie-gated images may need another approach.",
         inputSchema: {
           type: "object",
           properties: {

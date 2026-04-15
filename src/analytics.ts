@@ -386,6 +386,7 @@ export const ToolFlags: Record<string, string> = {
   socials_set_agent_tab: "mcp_tool_set_agent_tab",
   socials_reload_tab: "mcp_tool_reload_tab",
   socials_get_page_content: "mcp_tool_get_page_content",
+  socials_fetch_image: "mcp_tool_fetch_image",
   socials_scroll: "mcp_tool_scroll",
   socials_linkedin_people_search: "mcp_tool_linkedin_people_search",
   socials_linkedin_get_people: "mcp_tool_linkedin_get_people",
