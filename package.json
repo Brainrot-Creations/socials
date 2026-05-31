@@ -1,6 +1,6 @@
 {
   "name": "@brainrotcreations/socials",
-  "version": "1.1.22",
+  "version": "1.1.23",
   "description": "MCP server for the Socials browser extension — post, engage, search, and manage social media from Claude Code",
   "type": "module",
   "main": "dist/index.cjs",
