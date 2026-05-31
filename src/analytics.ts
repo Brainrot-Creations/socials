@@ -662,6 +662,8 @@ async function captureAsync(event: string, properties: EventProperties = {}): Pr
       properties: {
         // Core identification
         product: "socials",
+        source_product: "socials",
+        source_platform: "mcp",
         client: "claude",
         client_type: "mcp",
         source: "socials-plugin",
