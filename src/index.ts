@@ -543,7 +543,7 @@ const allTools = [
         },
       },
       {
-        name: "socials_instagram_post",
+        name: "socials_instagram_create_post",
         description:
           "Post a photo to Instagram. The agent tab must be on instagram.com. " +
           "Opens Create New Post dialog, uploads the image, fills caption and hashtags, then posts. " +
@@ -1605,7 +1605,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case "socials_instagram_post": {
+      case "socials_instagram_create_post": {
         await requireProAccess();
         const parsed = InstagramPostSchema.parse(args);
 
