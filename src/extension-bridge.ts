@@ -1043,20 +1043,9 @@ export class ExtensionBridge {
     caption: string;
     hashtags?: string;
   }): Promise<{ success: boolean; error?: string }> {
-    // Read file as base64 — agent-bridge injects it via chrome.scripting.executeScript
-    // in MAIN world, which can trigger React's synthetic event system.
-    let image_base64: string | undefined;
-    try {
-      const fs = await import("fs");
-      const buf = fs.readFileSync(payload.image_path);
-      image_base64 = buf.toString("base64");
-    } catch (e) {
-      return { success: false, error: `Failed to read image file: ${String(e)}` };
-    }
-    return this.sendRequest<{ success: boolean; error?: string }>("instagram_post", {
-      ...payload,
-      image_base64,
-    });
+    // File injection is handled by agent-bridge via chrome.debugger CDP (DOM.setFileInputFiles).
+    // Pass the absolute file path — CDP sets it at the browser level.
+    return this.sendRequest<{ success: boolean; error?: string }>("instagram_post", payload);
   }
 
   /** Get the current bridge mode */
