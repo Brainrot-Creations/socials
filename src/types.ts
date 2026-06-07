@@ -63,6 +63,8 @@ export type ExtensionMessageType =
   | "linkedin_connection_status"
   | "linkedin_engage_v2"
   | "linkedin_create_post"
+  // Instagram
+  | "instagram_post"
   // Extension control
   | "open_sidebar"
   | "close_sidebar"
