@@ -1038,6 +1038,14 @@ export class ExtensionBridge {
     return this.sendRequest<LinkedInActionResult>("linkedin_create_post", { content });
   }
 
+  async instagramPost(payload: {
+    image_path: string;
+    caption: string;
+    hashtags?: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    return this.sendRequest<{ success: boolean; error?: string }>("instagram_post", payload);
+  }
+
   /** Get the current bridge mode */
   getMode(): "coordinator" | "standalone" {
     return this.mode;

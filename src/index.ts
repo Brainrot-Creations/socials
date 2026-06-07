@@ -325,6 +325,21 @@ const ReloadTabSchema = z.object({
     .describe("Tab ID to reload (uses active tab if not provided)"),
 });
 
+const InstagramPostSchema = z.object({
+  image_path: z
+    .string()
+    .min(1)
+    .describe("Local file path to the image to upload (e.g. /Users/me/photo.jpg)"),
+  caption: z
+    .string()
+    .min(1)
+    .describe("Caption text for the Instagram post"),
+  hashtags: z
+    .string()
+    .optional()
+    .describe("Space-separated hashtags without the # symbol (e.g. 'travel food photography')"),
+});
+
 // Create MCP server
 const server = new Server(
   {
@@ -525,6 +540,31 @@ const allTools = [
             },
           },
           required: ["platform", "content"],
+        },
+      },
+      {
+        name: "socials_instagram_post",
+        description:
+          "Post a photo to Instagram. The agent tab must be on instagram.com. " +
+          "Opens Create New Post dialog, uploads the image, fills caption and hashtags, then posts. " +
+          "Always confirm with user before calling.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            image_path: {
+              type: "string",
+              description: "Local file path to the image to upload (e.g. /Users/me/photo.jpg)",
+            },
+            caption: {
+              type: "string",
+              description: "Caption text for the Instagram post",
+            },
+            hashtags: {
+              type: "string",
+              description: "Space-separated hashtags without the # symbol (e.g. 'travel food photography')",
+            },
+          },
+          required: ["image_path", "caption"],
         },
       },
       {
@@ -1551,6 +1591,45 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const elapsed = getElapsed();
         trackPostCreated(parsed.platform, parsed.content, result.success, elapsed);
         await trackToolUsage(name, parsed.platform, result.success, elapsed);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                success: result.success,
+                error: result.error,
+              }),
+            },
+          ],
+        };
+      }
+
+      case "socials_instagram_post": {
+        await requireProAccess();
+        const parsed = InstagramPostSchema.parse(args);
+
+        // Normalize path
+        let imagePath = parsed.image_path;
+        if (imagePath.startsWith("file://")) {
+          imagePath = imagePath.slice(7);
+        }
+        if (imagePath.startsWith("~")) {
+          imagePath = imagePath.replace("~", process.env.HOME || "");
+        }
+
+        if (!fs.existsSync(imagePath)) {
+          throw new Error(`Image file not found: ${imagePath}. Make sure the file exists and the path is correct.`);
+        }
+
+        const result = await bridge.instagramPost({
+          image_path: imagePath,
+          caption: parsed.caption,
+          hashtags: parsed.hashtags,
+        });
+
+        const elapsed = getElapsed();
+        await trackToolUsage(name, "instagram", result.success, elapsed);
 
         return {
           content: [
