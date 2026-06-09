@@ -31,7 +31,7 @@ const DEFAULT_PORT_START = 9847;
 const DEFAULT_PORT_COUNT = 10;
 const BRIDGE_HOST = "127.0.0.1" as const; // IPv4 only — avoids :: vs localhost mismatch and some EADDRINUSE cases
 const PING_INTERVAL = 30000; // 30 seconds
-const REQUEST_TIMEOUT = 60000; // 60 seconds for generation requests
+const REQUEST_TIMEOUT = 120000; // 120 seconds (instagram posts need ~60s for upload+confirm)
 const MAX_PING_FAILURES = 3; // Disconnect after 3 consecutive ping failures
 const HEALTH_CHECK_TIMEOUT = 5000; // 5 seconds for health check ping
 
@@ -1039,7 +1039,7 @@ export class ExtensionBridge {
   }
 
   async instagramPost(payload: {
-    image_path: string;
+    image_paths: string[];
     caption: string;
     hashtags?: string;
   }): Promise<{ success: boolean; error?: string }> {

@@ -329,7 +329,12 @@ const InstagramPostSchema = z.object({
   image_path: z
     .string()
     .min(1)
-    .describe("Local file path to the image to upload (e.g. /Users/me/photo.jpg)"),
+    .optional()
+    .describe("Local file path to the image to upload (e.g. /Users/me/photo.jpg). Use image_paths for multiple images."),
+  image_paths: z
+    .array(z.string().min(1))
+    .optional()
+    .describe("Array of local file paths for a multi-image carousel post (up to 10 images)."),
   caption: z
     .string()
     .min(1)
@@ -545,15 +550,21 @@ const allTools = [
       {
         name: "socials_instagram_create_post",
         description:
-          "Post a photo to Instagram. The agent tab must be on instagram.com. " +
-          "Opens Create New Post dialog, uploads the image, fills caption and hashtags, then posts. " +
+          "Post a photo or carousel (up to 10 images) to Instagram. The agent tab must be on instagram.com. " +
+          "Use image_path for a single image or image_paths array for a carousel. " +
+          "Opens Create New Post dialog, uploads the image(s), fills caption and hashtags, then posts. " +
           "Always confirm with user before calling.",
         inputSchema: {
           type: "object",
           properties: {
             image_path: {
               type: "string",
-              description: "Local file path to the image to upload (e.g. /Users/me/photo.jpg)",
+              description: "Local file path for a single image post (e.g. /Users/me/photo.jpg). Use image_paths for carousels.",
+            },
+            image_paths: {
+              type: "array",
+              items: { type: "string" },
+              description: "Array of local file paths for a multi-image carousel post (up to 10 images).",
             },
             caption: {
               type: "string",
@@ -564,7 +575,7 @@ const allTools = [
               description: "Space-separated hashtags without the # symbol (e.g. 'travel food photography')",
             },
           },
-          required: ["image_path", "caption"],
+          required: ["caption"],
         },
       },
       {
@@ -1609,21 +1620,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         await requireProAccess();
         const parsed = InstagramPostSchema.parse(args);
 
-        // Normalize path
-        let imagePath = parsed.image_path;
-        if (imagePath.startsWith("file://")) {
-          imagePath = imagePath.slice(7);
+        // Collect all paths (image_path + image_paths combined)
+        const rawPaths = [
+          ...(parsed.image_path ? [parsed.image_path] : []),
+          ...(parsed.image_paths || []),
+        ];
+        if (rawPaths.length === 0) {
+          throw new Error("Provide image_path (single) or image_paths (carousel) — at least one image required.");
         }
-        if (imagePath.startsWith("~")) {
-          imagePath = imagePath.replace("~", process.env.HOME || "");
-        }
-
-        if (!fs.existsSync(imagePath)) {
-          throw new Error(`Image file not found: ${imagePath}. Make sure the file exists and the path is correct.`);
+        const imagePaths = rawPaths.map(p => {
+          if (p.startsWith("file://")) p = p.slice(7);
+          if (p.startsWith("~")) p = p.replace("~", process.env.HOME || "");
+          return p;
+        });
+        for (const p of imagePaths) {
+          if (!fs.existsSync(p)) {
+            throw new Error(`Image file not found: ${p}. Make sure the file exists and the path is correct.`);
+          }
         }
 
         const result = await bridge.instagramPost({
-          image_path: imagePath,
+          image_paths: imagePaths,
           caption: parsed.caption,
           hashtags: parsed.hashtags,
         });
